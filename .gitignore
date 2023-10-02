@@ -7,3 +7,4 @@ config.json
 *.csv
 *.env
 *.json
+geckodriver.log
