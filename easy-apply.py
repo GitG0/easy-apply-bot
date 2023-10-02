@@ -1,11 +1,18 @@
 from selenium import webdriver
-from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.common.exceptions import NoSuchElementException
-from selenium.webdriver.chrome.service import Service
+
+#chrome specific
+# from selenium.webdriver.chrome.service import Service
+
+#firefox specific
+from selenium.webdriver.firefox.service import Service
+
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+
 from bs4 import BeautifulSoup
-from openai_utils import ask
 import time
 import json
 import sqlite3
@@ -57,9 +64,17 @@ def process_config():
 
 def launch_driver(url):
     service = Service()
-    options = webdriver.ChromeOptions()
-    driver = webdriver.Chrome(service=service, options=options)
+
+    #chrome specific options
+    # options = webdriver.ChromeOptions()
+    # driver = webdriver.Chrome(service=service, options=options)
+
+    #firefox specific options
+    options = webdriver.FirefoxOptions()
+    driver = webdriver.Firefox(service=service, options=options)
+
     driver.get(url)
+    driver.refresh()
     return driver
 
 
@@ -83,34 +98,34 @@ def login(driver, username, password):
         password)
     driver.find_element(
         By.XPATH, sign_in_button).click()
-    driver.get("https://www.linkedin.com/jobs/")
+    time.sleep(6) #verification/security check buffer
 
-
-def search(driver, job, location):
-    driver.set_window_size(1080, 1080)
+def search(driver, job, location, experience):
+    job_field = '//*[contains(@id, "jobs-search-box-keyword-id")]'
+    location_field = '//*[contains(@id, "jobs-search-box-location-id")]'
+    results_button = '/html/body/div[5]/div[3]/div[4]/section/div/section/div/div/div/ul/li[4]/div/div/div/div[1]/div/form/fieldset/div[2]/button[2]'
+    easy_button = '/html/body/div[5]/div[3]/div[4]/section/div/section/div/div/div/ul/li[8]/div/button'
+    driver.set_window_size(1300, 900) #to get all filters to appear
     driver.get("https://www.linkedin.com/jobs")
     time.sleep(2)
-    try:
-        driver.find_element(
-            By.XPATH, '//*[contains(@id, "jobs-search-box-keyword-id")]').clear()  # clear job title
-        driver.find_element(
-            By.XPATH, '//*[contains(@id, "jobs-search-box-location-id")]').clear()  # clear location
-    except:
-        pass
-    driver.find_element(
-        By.XPATH, '//*[contains(@id, "jobs-search-box-keyword-id")]').send_keys(job)  # fill job title
-    time.sleep(2)
-    try:
-        driver.find_element(
-            By.XPATH, '//*[contains(@id, "jobs-search-box-location-id")]').send_keys(location)  # fill location
-        driver.find_element(
-            By.XPATH, '//*[@id="global-nav-search"]/div/div[2]/button[1]').click()  # search
-    except:
-        # press enter
-        driver.find_element(
-            By.XPATH, '//*[contains(@id, "jobs-search-box-keyword-id")]').send_keys(Keys.ENTER)  # fill job title
-        pass
-    time.sleep(4)
+
+    WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.XPATH, job_field))).send_keys(job) # fill job title
+    WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.XPATH, location_field))).send_keys(location) # fill location
+    driver.find_element(By.XPATH, job_field).send_keys(Keys.ENTER)  # press enter
+
+    #experience drop down
+    WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.XPATH, '//*[@id="searchFilter_experience"]'))).click()
+    wait = WebDriverWait(driver, 30)
+    for i in range(experience): #intern/entry level/associate/mid-senior level/director/executive
+        wait.until(EC.element_to_be_clickable((By.XPATH, f"//label[@for='experience-{i+1}']"))).click()
+    time.sleep(1)
+    # WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.XPATH, results_button))).click()#show results button 
+    driver.find_element(By.XPATH, results_button).click  # press enter  
+    time.sleep(1)
+
+    #easy apply button
+    WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.XPATH, easy_button))).click()
+
     return driver.current_url
 
 
@@ -169,7 +184,6 @@ def apply(listing: JobListing, driver, db, connection):
             count += 1
             if (count > 10):
                 break
-
             else:
                 try:
                     driver.find_element(
@@ -192,7 +206,7 @@ def apply(listing: JobListing, driver, db, connection):
                         input = group.find_element(By.TAG_NAME, "input")
                         if 'year' in label.text.lower() or 'how long' in label.text.lower():
                             input.clear()
-                            input.send_keys("5")
+                            input.send_keys("3")
                             continue
                         elif input.get_attribute("type") == "radio":
                             input.click()
@@ -203,7 +217,7 @@ def apply(listing: JobListing, driver, db, connection):
 
                     try:
                         textarea = group.find_element(By.TAG_NAME, "textarea")
-                        response = ask(label.text, listing.description, 4)
+                        # response = ask(label.text, listing.description, 4)
                         textarea.send_keys(response)
                         continue
                     except:
@@ -293,6 +307,9 @@ if __name__ == "__main__":
     config = process_config()
     username = config["username"]
     password = config["password"]
+
+    # value from 1-6 to indicate how much experience: intern/entry level/associate/mid-senior level/director/executive
+    experience = config["experience"]
     job_titles = config["job_titles"]
     locations = config["locations"]
     connection = create_connection("jobs.db")
@@ -300,14 +317,14 @@ if __name__ == "__main__":
     db.execute("CREATE TABLE IF NOT EXISTS listings (id INTEGER PRIMARY KEY, title TEXT, company TEXT, location TEXT, link TEXT, description TEXT, easy_apply TEXT, remote TEXT)")
     connection.commit()
     pages = 40
-    time.sleep(10)
+    time.sleep(3)
 
     login(driver, username, password)
 
     for job in job_titles:
         for location in locations:
             time.sleep(2)
-            search_url = search(driver, job, location)
+            search_url = search(driver, job, location, experience)
             time.sleep(2)
             for i in range(1, pages + 1, 1):
                 try:

@@ -1,17 +1,13 @@
 {
-    "username": "username",
+    "username": "email",
     "password": "password",
     "job_titles": [
         "Software Engineer",
-        "Full Stack Developer",
-        "Python Developer",
-        "React Developer",
-        "Entry Level Software Engineer",
-        "Junior Developer"
+        "Developer"        
     ],
     "locations": [
-        "Remote",
-        "Greater Toronto Area, Canada",
-        "Toronto, Ontario, Canada"
-    ]
+        "Canada",
+        "Remote"
+    ],
+    "experience": 2
 }
