@@ -11,6 +11,8 @@ Assuming you have Python3 installed, activate a virtual environment (optional) a
 The config file template is shown below. 
 You'll need to edit this according to what jobs you are looking for, and their locations. 
 You will also need to add in your LinkedIn credentials. 
+Only Easy Apply postings will be selected.
+Set "experience" from 1-6 to refine search to your experience level: intern/entry level/associate/mid-senior level/director/executive
 Make sure that the config file follows proper json syntax.
 
 ```
@@ -19,16 +21,13 @@ Make sure that the config file follows proper json syntax.
     "password": "password",
     "job_titles": [
         "Software Engineer",
-        "Full Stack Developer",
-        "Django Developer",
-        "Python Developer",
-        "IoT Developer",
-        "React Native Developer",
-        "React Developer"
+        "Developer"        
     ],
     "locations": [
+        "Canada",
         "Remote"
-    ]
+    ],
+    "experience": 2
 }
 ```
 
